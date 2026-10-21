@@ -1,0 +1,6 @@
+{
+  "name": "SarPay AI - Myanmar Translation & Book Studio",
+  "description": "Smart Myanmar AI translation studio with book chunking, AI summary and review, and Firebase user management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
