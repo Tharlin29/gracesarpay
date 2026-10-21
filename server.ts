@@ -27,16 +27,18 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Initialize GoogleGenAI
-const apiKey = process.env.GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({
-  apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Initialize GoogleGenAI client dynamically
+function getGeminiClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 // Model priority cascade as requested:
 // 1. gemini-3.5-flash (Primary default - natural Myanmar translation)
@@ -62,6 +64,7 @@ const MODEL_CASCADE = [
 // Helper to run content generation with model cascade and explicit output tokens
 async function generateWithCascade(prompt: string, systemInstruction?: string) {
   let lastError: any = null;
+  const ai = getGeminiClient();
 
   for (const model of MODEL_CASCADE) {
     // Try up to 2 attempts per model for transient 503 spikes
@@ -531,4 +534,11 @@ async function startServer() {
   });
 }
 
-startServer();
+// Export app for serverless platforms (Vercel, AWS Lambda, Google Cloud Functions)
+export default app;
+export { app };
+
+// Automatically start standalone server unless running in a serverless platform (e.g. Vercel)
+if (process.env.VERCEL !== '1') {
+  startServer();
+}

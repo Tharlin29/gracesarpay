@@ -8,18 +8,22 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const CONFIG_FILE_PATH = path.resolve(__dirname, 'api-proxy-keys.json');
+const CONFIG_FILE_PATH = process.env.VERCEL
+  ? path.resolve('/tmp', 'api-proxy-keys.json')
+  : path.resolve(__dirname, 'api-proxy-keys.json');
 
-// Initialize Gemini Client
-const geminiApiKey = process.env.GEMINI_API_KEY || '';
-const ai = new GoogleGenAI({
-  apiKey: geminiApiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Initialize Gemini Client dynamically so any runtime env var (including Vercel) is used
+function getGeminiClient(customKey?: string): GoogleGenAI {
+  const activeKey = customKey || process.env.GEMINI_API_KEY || '';
+  return new GoogleGenAI({
+    apiKey: activeKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 export interface CustomApiKeyEntry {
   id: string;
@@ -227,7 +231,7 @@ export function getProxyStatus() {
       groq: maskKey(currentConfig.groqApiKey || process.env.GROQ_API_KEY || ''),
       openRouter: maskKey(currentConfig.openRouterApiKey || process.env.OPENROUTER_API_KEY || ''),
       deepSeek: maskKey(currentConfig.deepSeekApiKey || process.env.DEEPSEEK_API_KEY || ''),
-      gemini: maskKey(geminiApiKey || process.env.GEMINI_API_KEY || ''),
+      gemini: maskKey(process.env.GEMINI_API_KEY || ''),
     },
     customKeys: (currentConfig.customKeys || []).map((k) => ({
       ...k,
@@ -412,6 +416,7 @@ async function callDeepSeek(prompt: string, systemInstruction?: string): Promise
 async function callGemini(prompt: string, systemInstruction?: string): Promise<{ text: string; model: string }> {
   const models = [providers.gemini.defaultModel, ...providers.gemini.fallbackModels];
   let lastErr: any = null;
+  const ai = getGeminiClient();
 
   for (const model of models) {
     try {
@@ -454,10 +459,7 @@ export async function callArbitraryProvider(
   const { providerType, apiKey, model, baseUrl } = cfg;
 
   if (providerType === 'gemini') {
-    const customAi = new GoogleGenAI({
-      apiKey: apiKey || geminiApiKey,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    });
+    const customAi = getGeminiClient(apiKey);
     const targetModel = model || 'gemini-3.5-flash';
     const response = await customAi.models.generateContent({
       model: targetModel,
